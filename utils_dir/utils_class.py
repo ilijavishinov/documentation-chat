@@ -331,10 +331,14 @@ class DocumentationAgent:
         
         """
         relevant_docs_tuples = self.db.similarity_search_with_relevance_scores(query, k = k)
+        
         # sort by relevance score
         relevant_docs_tuples.sort(key = lambda a: a[1], reverse = True)
-        relevant_docs = [pair[0] for pair in relevant_docs_tuples]
-        similarity_scores = [pair[1] for pair in relevant_docs_tuples]
+        
+        # take only relevant docs with cosine similarity > 0.5
+        relevant_docs = [pair[0] for pair in relevant_docs_tuples if pair[1] >= 0.5]
+        similarity_scores = [pair[1] for pair in relevant_docs_tuples if pair[1] >= 0.5]
+        
         return relevant_docs, similarity_scores
         
     
