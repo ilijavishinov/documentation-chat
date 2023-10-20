@@ -294,7 +294,7 @@ class DocumentationAgent:
         # answer = result['result']
         
         # console_print(result, 'result')
-        relevant_docs = self.db.similarity_search(query, k = 10)
+        relevant_docs, similarity_scores = self.relevant_docs_ordered_by_similarity(query, current_k)
         # console_print(relevant_docs, 'relevant_docs')
         return result, relevant_docs
     
@@ -326,7 +326,8 @@ class DocumentationAgent:
     
     def relevant_docs_ordered_by_similarity(self,
                                             query,
-                                            k):
+                                            k,
+                                            threshold = 0.5):
         """
         
         """
@@ -336,8 +337,8 @@ class DocumentationAgent:
         relevant_docs_tuples.sort(key = lambda a: a[1], reverse = True)
         
         # take only relevant docs with cosine similarity > 0.5
-        relevant_docs = [pair[0] for pair in relevant_docs_tuples if pair[1] >= 0.5]
-        similarity_scores = [pair[1] for pair in relevant_docs_tuples if pair[1] >= 0.5]
+        relevant_docs = [pair[0] for pair in relevant_docs_tuples if pair[1] >= threshold]
+        similarity_scores = [pair[1] for pair in relevant_docs_tuples if pair[1] >= threshold]
         
         return relevant_docs, similarity_scores
         
@@ -385,12 +386,9 @@ class DocumentationAgent:
                     break
                 
             current_k += k_increase
-
-                    
+            
             print('while', not result)
             
-
-                
         return result, relevant_docs
     
     
