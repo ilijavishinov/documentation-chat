@@ -17,7 +17,7 @@ from langchain.document_loaders import (
 )
 import os
 import utils_dir.text_processing as text_processing
-from langchain.text_splitter import RecursiveCharacterTextSplitter, MarkdownTextSplitter, MarkdownHeaderTextSplitter, CharacterTextSplitter
+from langchain.text_splitter import RecursiveCharacterTextSplitter, MarkdownTextSplitter, MarkdownHeaderTextSplitter, CharacterTextSplitter, SentenceTransformersTokenTextSplitter
 from langchain.prompts import PromptTemplate
 
 os.environ["OPENAI_API_KEY"] = "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"
@@ -36,12 +36,13 @@ class DocumentationAgent:
     
     documents = None
     texts = None
-    db = None
     docs_dir = None
-    llm = None
+    db = None
+    embedding_tokenizer = None
+    embedding_model = None
     qa_tokenizer = None
     qa_model = None
-    embedding_model = None
+    llm = None
     
     def __init__(self,
                  db_dir = None,
@@ -84,28 +85,38 @@ class DocumentationAgent:
     
     def split_documents(self,
                         text_splitter_name = 'recursive',
-                        chunk_size = 500,
-                        chunk_overlap = 200):
+                        chunk_size = None):
         """
 
         """
-        # type = 'markdown'
+
         text_splitter = None
-        
+        chunk_overlap = chunk_size // 3 if chunk_size else None
         
         if text_splitter_name == 'recursive':
-            text_splitter = RecursiveCharacterTextSplitter(chunk_size = chunk_size,
-                                                           chunk_overlap = chunk_overlap)
-        elif text_splitter_name == 'character':
-            text_splitter = CharacterTextSplitter(
-                separator = "\n\n",
+            text_splitter = RecursiveCharacterTextSplitter(
                 chunk_size = chunk_size,
                 chunk_overlap = chunk_overlap,
-                length_function = len,
-                is_separator_regex = False,
+                separator = ' '
+            )
+        elif text_splitter_name == 'character':
+            text_splitter = CharacterTextSplitter(
+                chunk_size = chunk_size,
+                chunk_overlap = chunk_overlap,
+                separator = ' '
             )
         elif text_splitter_name == 'markdown':
             text_splitter = MarkdownTextSplitter()
+        elif text_splitter_name == 'tokens':
+            text_splitter = CharacterTextSplitter.from_huggingface_tokenizer(
+                self.embedding_tokenizer,
+                chunk_size = chunk_size,
+                chunk_overlap = chunk_overlap,
+                separator = ' '
+            )
+            # text_splitter = SentenceTransformersTokenTextSplitter(
+            #     model_name = qa_model_name
+            # )
         
         if not text_splitter:
             raise NameError("The text_splitter_name that you entered is not supported")
@@ -118,59 +129,77 @@ class DocumentationAgent:
 
         """
         
-        model_name = self.embedding_model_name
-        embeddings_object = None
-        
-        if model_name == 'openai':
-            embeddings_object = OpenAIEmbeddings(model = 'text-embedding-ada-002')
-        elif model_name == 'llamacpp':
-            # embeddings_object = LlamaCppEmbeddings(model_path = r'C:\Users\ilija\models\llama.cpp\models\7B_noblas\ggml-model-q4_0.gguf',
-            embeddings_object = LlamaCppEmbeddings(model_path = r'C:\Users\ilija\llama.cpp\models\7B\ggml-model-q4_0.gguf',
-                                                   # embeddings_object = LlamaCppEmbeddings(model_path = r'D:\python_projects\loka_final\models\llama-2-7b.Q4_0.gguf',
-                                                   verbose = True,
-                                                   n_ctx = 1024,
-                                                   n_gpu_layers = 40,
-                                                   n_batch = 512)
-        elif model_name == 'llamacpppython':
-            # embeddings_object = LlamaCppEmbeddings(model_path = r'C:\Users\ilija\models\llama.cpp\models\7B_noblas\ggml-model-q4_0.gguf',
-            embeddings_object = LlamaCppEmbeddings(model_path = r'C:\Users\ilija\llama.cpp\models\7B\ggml-model-q4_0.gguf',
-                                                   # embeddings_object = LlamaCppEmbeddings(model_path = r'D:\python_projects\loka_final\models\llama-2-7b.Q4_0.gguf',
-                                                   verbose = True,
-                                                   n_ctx = 1024,
-                                                   n_gpu_layers = 40,
-                                                   n_batch = 512)
-        elif model_name == 'sbert':
-            embeddings_object = GPT4AllEmbeddings(model_path = r"ggml-all-MiniLM-L6-v2-f16.bin")
-        elif model_name == 'ggml-falcon':
+        if self.embedding_model_name == 'openai':
+            self.embedding_model = OpenAIEmbeddings(
+                model = 'text-embedding-ada-002'
+            )
+            
+        elif self.embedding_model_name == 'llamacpp':
+            self.embedding_model = LlamaCppEmbeddings(
+                model_path = r'C:\Users\ilija\llama.cpp\models\7B\ggml-model-q4_0.gguf',
+                verbose = True,
+                n_ctx = 1024,
+                n_gpu_layers = 40,
+                n_batch = 512
+            )
+            
+        elif self.embedding_model_name == 'llamacpppython':
+            self.embedding_model = LlamaCppEmbeddings(
+                model_path = r'C:\Users\ilija\llama.cpp\models\7B\ggml-model-q4_0.gguf',
+                verbose = True,
+                n_ctx = 1024,
+                n_gpu_layers = 40,
+                n_batch = 512
+            )
+            
+        elif self.embedding_model_name == 'sbert':
+            self.embedding_model = GPT4AllEmbeddings(
+                model_path = r"ggml-all-MiniLM-L6-v2-f16.bin"
+            )
+            
+        elif self.embedding_model_name == 'ggml-falcon':
             print("Using falcon model")
-            embeddings_object = GPT4AllEmbeddings(model = r"D:\python_projects\loka_final\models\ggml-model-gpt4all-falcon-q4_0.bin")
-            # verbose = True, n_ctx = 1024, n_gpu_layers = 1, n_batch = 4)
-        elif model_name.startswith('flan'):
-            embeddings_object = GPT4AllEmbeddings(model_path = r"ggml-all-MiniLM-L6-v2-f16.bin")
-        elif model_name.startswith('distilbert'):
-            embeddings_object = HuggingFaceEmbeddings(
-                model_name = "sentence-transformers/distilbert-base-nli-stsb-mean-tokens",
-                model_kwargs = {'device': 'cuda:0'},
-                # encode_kwargs = {'normalize_embeddings': False}
+            self.embedding_model = GPT4AllEmbeddings(
+                model = r"D:\python_projects\loka_final\models\ggml-model-gpt4all-falcon-q4_0.bin"
             )
-        elif model_name.startswith('bert'):
-            embeddings_object = HuggingFaceEmbeddings(
-                model_name = "sentence-transformers/bert-base-nli-stsb-mean-tokens",
-                model_kwargs = {'device': 'cuda:0'},
-                # encode_kwargs = {'normalize_embeddings': False}
+            
+        elif self.embedding_model_name.startswith('flan'):
+            self.embedding_model = GPT4AllEmbeddings(
+                model_path = r"ggml-all-MiniLM-L6-v2-f16.bin"
             )
-        elif model_name.startswith('roberta'):
-            embeddings_object = HuggingFaceEmbeddings(
-                model_name = "sentence-transformers/roberta-base-nli-stsb-mean-tokens",
+            
+        elif self.embedding_model_name.startswith('distilbert'):
+            model_name = "sentence-transformers/distilbert-base-nli-stsb-mean-tokens"
+            self.embedding_model = HuggingFaceEmbeddings(
+                model_name = model_name,
                 model_kwargs = {'device': 'cuda:0'},
-                # encode_kwargs = {'normalize_embeddings': False}
+                # encode_kwargs = {'normalize_embeddings': False}`
             )
+            self.embedding_tokenizer = AutoTokenizer.from_pretrained(model_name)
+            
+        elif self.embedding_model_name.startswith('bert'):
+            model_name = "sentence-transformers/bert-base-nli-stsb-mean-tokens",
+            self.embedding_model = HuggingFaceEmbeddings(
+                model_name = model_name,
+                model_kwargs = {'device': 'cuda:0'},
+                # encode_kwargs = {'normalize_embeddings': False}`
+            )
+            self.embedding_tokenizer = AutoTokenizer.from_pretrained(model_name)
+
+            
+        elif self.embedding_model_name.startswith('roberta'):
+            # model_name = "sentence-transformers/roberta-base-nli-stsb-mean-tokens",
+            model_name = "symanto/sn-xlm-roberta-base-snli-mnli-anli-xnli"
+            self.embedding_model = HuggingFaceEmbeddings(
+                model_name = model_name,
+                model_kwargs = {'device': 'cuda:0'},
+                # encode_kwargs = {'normalize_embeddings': False}`
+            )
+            self.embedding_tokenizer = AutoTokenizer.from_pretrained(model_name)
+
         
-        if not embeddings_object:
+        if not self.embedding_model:
             raise NameError("The model_name for embeddings that you entered is not supported")
-        
-        self.embedding_model = embeddings_object
-        return embeddings_object
     
     
     def get_llm_object(self):
@@ -181,19 +210,17 @@ class DocumentationAgent:
         if self.llm_model_name == 'openai':
             self.llm = ChatOpenAI(model_name = "gpt-3.5-turbo")
         elif self.llm_model_name == 'llamacpp':
-            # llm = LlamaCpp(model_path = r'C:\Users\ilija\models\llama.cpp\models\7B_noblas\ggml-model-q4_0.gguf',
-            self.llm = LlamaCpp(model_path = r'C:\Users\ilija\llama.cpp\models\7B\ggml-model-q4_0.gguf',
-                           verbose = True,
-                           n_ctx = 1024,
-                           n_threads = 8,
-                           n_gpu_layers = 40,
-                           n_batch = 512)
+            self.llm = LlamaCpp(
+                model_path = r'C:\Users\ilija\llama.cpp\models\7B\ggml-model-q4_0.gguf',
+                verbose = True,
+                n_ctx = 1024,
+                n_threads = 8,
+                n_gpu_layers = 40,
+                n_batch = 512)
         elif self.llm_model_name == 'gpt4all':
-            # llm = GPT4All(
-            #     model = './models/ggml-gpt4all-j-v1.3-groovy.bin',
-            #     callbacks = [StreamingStdOutCallbackHandler()]
-            # )
-            self.llm = GPT4All(model = r"https://gpt4all.io/models/gguf/orca-mini-3b-gguf2-q4_0.gguf")
+            self.llm = GPT4All(
+                model = './models/ggml-gpt4all-j-v1.3-groovy.bin',
+            )
             # verbose = True, n_ctx = 1024, n_gpu_layers = 1, n_batch = 4)
         elif self.llm_model_name == 'ggml-falcon':
             self.llm = GPT4All(model = r"D:\Downloads\ggml-model-gpt4all-falcon-q4_0.bin")
@@ -251,23 +278,36 @@ class DocumentationAgent:
     def load_documentation_folder(self,
                                   docs_dir,
                                   text_splitter_name,
+                                  chunk_size = None,
                                   similarity_metric_name = 'cosine'):
         """
         """
         
+        # load the embedding model
         self.get_embeddings_object()
         
-        persist_directory = os.path.join(
-            self.db_dir,
-            f'db_{os.path.basename(os.path.normpath(docs_dir))}_{self.embedding_model_name}_{text_splitter_name}_{similarity_metric_name}'
-        )
+        # assertions
+        if text_splitter_name == 'tokens' and self.embedding_model_name not in ['distilbert', 'roberta', 'bert']:
+            raise NameError(f"tokens chunking implementation for {self.embedding_model_name} is not supported")
         
+        # define the db folder name based on chunking and embedding parameters
+        dir_suffix = f"{self.embedding_model_name}_{similarity_metric_name}_{text_splitter_name}"
+        if chunk_size:
+            dir_suffix += f'_{chunk_size}'
+        persist_directory = os.path.join(self.db_dir, f'db_{os.path.basename(os.path.normpath(docs_dir))}_{dir_suffix}')
+        
+        # load chroma db, or create if it does not exist
         if not os.path.exists(persist_directory):
             self.read_documents(docs_dir)
-            self.split_documents(text_splitter_name = text_splitter_name)
-            chroma = Chroma.from_documents(self.texts, self.embedding_model, persist_directory = persist_directory, collection_metadata={"hnsw:space": similarity_metric_name})
+            self.split_documents(text_splitter_name = text_splitter_name, chunk_size = chunk_size)
+            chroma = Chroma.from_documents(self.texts,
+                                           self.embedding_model,
+                                           persist_directory = persist_directory,
+                                           collection_metadata={"hnsw:space": similarity_metric_name})
         else:
-            chroma = Chroma(persist_directory = persist_directory, embedding_function = self.embedding_model, collection_metadata={"hnsw:space": similarity_metric_name})
+            chroma = Chroma(persist_directory = persist_directory,
+                            embedding_function = self.embedding_model,
+                            collection_metadata={"hnsw:space": similarity_metric_name})
         
         self.db = chroma
     
@@ -276,22 +316,23 @@ class DocumentationAgent:
         """
 
         """
-        
+        query = query.lower()
+
         self.get_llm_object()
         
-        # result = None
-        # answer = 'not contain the answer'
-        # current_k = 0
-        # while 'not contain the answer' in answer:
-        current_k = 1
-        qa = RetrievalQA.from_chain_type(llm = self.llm,
-                                         chain_type = "stuff",
-                                         retriever = self.db.as_retriever(search_kwargs = {'k': current_k}),
-                                         chain_type_kwargs = {"prompt": self.llm_rag_prompt},
-                                         return_source_documents = True
-                                         )
-        result = qa({"query": query})
-        # answer = result['result']
+        result = None
+        answer = 'not contain the answer'
+        current_k = 0
+        while 'not contain the answer' in answer or current_k > 1:
+            current_k += 1
+            qa = RetrievalQA.from_chain_type(llm = self.llm,
+                                             chain_type = "stuff",
+                                             retriever = self.db.as_retriever(search_kwargs = {'k': current_k}),
+                                             chain_type_kwargs = {"prompt": self.llm_rag_prompt},
+                                             return_source_documents = True
+                                             )
+            result = qa({"query": query})
+            answer = result['result']
         
         # console_print(result, 'result')
         relevant_docs, similarity_scores = self.relevant_docs_ordered_by_similarity(query, current_k)
@@ -348,6 +389,9 @@ class DocumentationAgent:
         """
         
         """
+        
+        query = query.lower()
+        
         self.get_qa_object()
         
         result = None
