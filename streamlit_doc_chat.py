@@ -96,29 +96,29 @@ if __name__ == '__main__':
     with st.sidebar:
         embeddings_model_name = st.selectbox(
             'Choose the embedding model', (
-                'roberta',
-                'distilbert',
-                'openai',
+                'RoBERTa',
+                'DistilBERT ',
+                'OpenAI ADAv2',
                 # 'llamacpp',
                 # 'sbert',
                 # 'ggml-falcon',
                 # 'flan',
             )
-        )
+        ).lower()
         
         answering_model_name = st.selectbox(
             'Choose the answering model', (
-                'qa_roberta',
-                'qa_albert',
-                'qa_bert',
-                'openai',
+                'QA_RoBERTa',
+                'QA_albert',
+                'QA_bert',
+                'OpenAI GPT3.5',
                 # 'llamacpp'
                 # 'flan',
                 # 'distilbert',
                 # 'bert',
                 # 'roberta',
             )
-        )
+        ).lower()
         
         chunking_type = st.selectbox(
             'Choose the chunking type', (

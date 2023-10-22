@@ -35,7 +35,7 @@ class LlmAgent:
         """
         """
         
-        if self.llm_model_name == 'openai':
+        if self.llm_model_name.startswith('openai'):
             self.llm = ChatOpenAI(model_name = "gpt-3.5-turbo")
         elif self.llm_model_name == 'llamacpp':
             self.llm = LlamaCpp(

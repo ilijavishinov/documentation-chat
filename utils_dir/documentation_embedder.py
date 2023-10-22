@@ -24,7 +24,7 @@ class DocumentationEmbedder:
         """
 
         """
-        if self.embedding_model_name == 'openai':
+        if self.embedding_model_name.startswith('openai'):
             self.embedding_model = OpenAIEmbeddings(
                 model = 'text-embedding-ada-002'
             )
