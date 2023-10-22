@@ -35,7 +35,6 @@ class LlmAgent:
         """
         """
         
-        console_print(f'Getting {self.llm_model_name}')
         if self.llm_model_name == 'openai':
             self.llm = ChatOpenAI(model_name = "gpt-3.5-turbo")
         elif self.llm_model_name == 'llamacpp':
