@@ -8,16 +8,12 @@ import os
 from utils_dir.text_processing import console_print
 from langchain.prompts import PromptTemplate
 
-os.environ["OPENAI_API_KEY"] = "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"
-
 
 class LlmAgent:
-    
     llm = None
     
     def __init__(self,
                  llm_model_name = None):
-        
         self.llm_model_name = llm_model_name
         self.rag_prompt_template = """Use only the following pieces of context to answer the question at the end. \
         If the context does not contain the answer, say that the documentation does not contain the answer.
@@ -33,6 +29,7 @@ class LlmAgent:
     
     def get_llm_object(self):
         """
+        Returns the LLM object based on the provided model name
         """
         
         if self.llm_model_name.startswith('openai'):
@@ -90,8 +87,9 @@ class LlmAgent:
                 query,
                 db):
         """
-
+        Performs Retrieval Augmented Generation with the most similar document from the vector db
         """
+        
         query = query.lower()
         
         result = None
@@ -119,8 +117,9 @@ class LlmAgent:
                                             k,
                                             threshold = 0.5):
         """
-        
+        Returns the most similar documents to the query depending on a similarity threshold
         """
+        
         relevant_docs_tuples = db.similarity_search_with_relevance_scores(query, k = k)
         
         # sort by relevance score
@@ -131,5 +130,4 @@ class LlmAgent:
         similarity_scores = [pair[1] for pair in relevant_docs_tuples if pair[1] >= threshold]
         
         return relevant_docs, similarity_scores
-        
-        
+

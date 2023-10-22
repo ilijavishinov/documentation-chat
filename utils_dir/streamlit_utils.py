@@ -46,8 +46,6 @@ def answer_html_func(result, relevant_documents):
     for doc in relevant_documents:
         other_sources.append(doc.metadata['source'])
     
-    # TODO: function that removes duplicate sources
-    # TODO: function that creates html for answer from result and sources
     all_sources = list()
     answer += '<hr style="border: 1px solid #424242;"> Source: '
     
@@ -57,7 +55,6 @@ def answer_html_func(result, relevant_documents):
     answer += f"<br><em href='{first_source}' style='{BTN_STYLE}'>{os.path.basename(os.path.normpath(first_source))}</em><br>"
     
     answer += '<hr style="border: 1px solid #424242;"> Other relevant docs: '
-    num_other_sources = 0
     for ref in other_sources:
         if not ref.endswith('.md'):
             ref = ref + '.md'

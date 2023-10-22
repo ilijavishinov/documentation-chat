@@ -5,9 +5,7 @@ import utils_dir.text_processing as text_processing
 from utils_dir_backup.ingest_data import sentence_to_vector
 from transformers import AutoTokenizer, AutoModelForQuestionAnswering
 
-
 class QaAgent:
-    
     qa_tokenizer = None
     qa_model = None
     
@@ -19,6 +17,7 @@ class QaAgent:
     
     def get_qa_object(self):
         """
+        Chooses the Question-Answering model and tokenizer objects depending on the model name
         """
         
         if self.qa_model_name.startswith('qa_albert'):
@@ -33,7 +32,7 @@ class QaAgent:
         
         if not self.qa_model:
             raise NameError("The model_name for llm that you entered is not supported")
-        
+    
     @staticmethod
     def remove_bert_tokens(text: str) -> str:
         for separator_token in ["[CLS]", "[SEP]", "[UNK]", "<s>", "</s>", "[]"]:
@@ -43,6 +42,10 @@ class QaAgent:
     def qa_model_answer(self,
                         query,
                         context):
+        """
+        Perform the question-answering logic in pytorch
+        """
+        
         inputs = self.qa_tokenizer(query.lower(), context, add_special_tokens = True, return_tensors = "pt")
         input_ids = inputs["input_ids"].tolist()[0]
         
@@ -65,8 +68,9 @@ class QaAgent:
                                             k,
                                             threshold = 0.5):
         """
-
+        Returns the most similar documents to the query depending on a similarity threshold
         """
+        
         relevant_docs_tuples = db.similarity_search_with_relevance_scores(query, k = k)
         
         # sort by relevance score
@@ -82,7 +86,7 @@ class QaAgent:
                     query,
                     db):
         """
-
+        Performs Question-Answering while it finds a suitable answer from the vector database.
         """
         
         query = query.lower()
@@ -94,7 +98,6 @@ class QaAgent:
         
         current_k = 5
         k_increase = 30
-    
         
         while not result:
             # if result not found in 50 retrieved docs, do not provide one
@@ -125,8 +128,6 @@ class QaAgent:
                     break
             
             current_k += k_increase
-            
-            print('while', not result)
         
         return result, relevant_docs
-    
+

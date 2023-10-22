@@ -20,8 +20,6 @@ import utils_dir.text_processing as text_processing
 from langchain.text_splitter import RecursiveCharacterTextSplitter, MarkdownTextSplitter, MarkdownHeaderTextSplitter, CharacterTextSplitter, SentenceTransformersTokenTextSplitter
 from langchain.prompts import PromptTemplate
 
-os.environ["OPENAI_API_KEY"] = "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"
-
 
 class DocumentationHandler:
     documents = []
@@ -31,12 +29,12 @@ class DocumentationHandler:
     
     def __init__(self,
                  db_dir = None):
-        
         self.db_dir = db_dir
     
     def read_documents(self,
                        docs_dir):
         """
+        Reads all markdown files from a folder structure as langchain documents
         """
         
         glob = Path(f"{docs_dir}").glob
@@ -56,7 +54,7 @@ class DocumentationHandler:
                         chunk_size,
                         text_splitter_name = 'recursive'):
         """
-
+        Splits the document based on a chunking strategy
         """
         
         text_splitter = None
@@ -96,7 +94,6 @@ class DocumentationHandler:
             
             texts = text_splitter.split_documents(self.documents)
             self.texts.extend(texts)
-            
     
     def load_documentation_folder(self,
                                   embedding_agent,
@@ -105,6 +102,7 @@ class DocumentationHandler:
                                   chunk_size = None,
                                   similarity_metric_name = 'cosine'):
         """
+        Creates or load a chroma vector database depnding on if it exists for the passed documentation
         """
         
         # assertions
@@ -133,4 +131,3 @@ class DocumentationHandler:
                             collection_metadata = {"hnsw:space": similarity_metric_name})
         
         self.db = chroma
-    

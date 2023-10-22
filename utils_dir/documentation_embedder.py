@@ -5,9 +5,6 @@ from langchain.embeddings import LlamaCppEmbeddings, GPT4AllEmbeddings
 import os
 
 
-os.environ["OPENAI_API_KEY"] = "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"
-
-
 class DocumentationEmbedder:
     docs_dir = None
     db = None
@@ -22,8 +19,9 @@ class DocumentationEmbedder:
     
     def get_embeddings_object(self):
         """
-
+        Chooses the embedding model depending on the provided name
         """
+        
         if self.embedding_model_name.startswith('openai'):
             self.embedding_model = OpenAIEmbeddings(
                 model = 'text-embedding-ada-002'
