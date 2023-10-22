@@ -34,8 +34,8 @@ def console_print(arg, desc = None):
 
 class DocumentationAgent:
     
-    documents = None
-    texts = None
+    documents = []
+    texts = []
     docs_dir = None
     db = None
     embedding_tokenizer = None
@@ -84,45 +84,52 @@ class DocumentationAgent:
         self.documents = documents
     
     def split_documents(self,
-                        text_splitter_name = 'recursive',
-                        chunk_size = None):
+                        chunk_size,
+                        text_splitter_name = 'recursive'):
         """
 
         """
 
         text_splitter = None
-        chunk_overlap = chunk_size // 3 if chunk_size else None
         
-        if text_splitter_name == 'recursive':
-            text_splitter = RecursiveCharacterTextSplitter(
-                chunk_size = chunk_size,
-                chunk_overlap = chunk_overlap,
-                separator = ' '
-            )
-        elif text_splitter_name == 'character':
-            text_splitter = CharacterTextSplitter(
-                chunk_size = chunk_size,
-                chunk_overlap = chunk_overlap,
-                separator = ' '
-            )
-        elif text_splitter_name == 'markdown':
-            text_splitter = MarkdownTextSplitter()
-        elif text_splitter_name == 'tokens':
-            text_splitter = CharacterTextSplitter.from_huggingface_tokenizer(
-                self.embedding_tokenizer,
-                chunk_size = chunk_size,
-                chunk_overlap = chunk_overlap,
-                separator = ' '
-            )
-            # text_splitter = SentenceTransformersTokenTextSplitter(
-            #     model_name = qa_model_name
-            # )
+        if type(chunk_size) is int:
+            chunk_size = [chunk_size]
         
-        if not text_splitter:
-            raise NameError("The text_splitter_name that you entered is not supported")
+        chunk_sizes = chunk_size
         
-        texts = text_splitter.split_documents(self.documents)
-        self.texts = texts
+        for chunk_size in chunk_sizes:
+            chunk_overlap = chunk_size // 3
+            
+            if text_splitter_name == 'recursive':
+                text_splitter = RecursiveCharacterTextSplitter(
+                    chunk_size = chunk_size,
+                    chunk_overlap = chunk_overlap,
+                    separator = ' '
+                )
+            elif text_splitter_name == 'character':
+                text_splitter = CharacterTextSplitter(
+                    chunk_size = chunk_size,
+                    chunk_overlap = chunk_overlap,
+                    separator = ' '
+                )
+            elif text_splitter_name == 'markdown':
+                text_splitter = MarkdownTextSplitter()
+            elif text_splitter_name == 'tokens':
+                text_splitter = CharacterTextSplitter.from_huggingface_tokenizer(
+                    self.embedding_tokenizer,
+                    chunk_size = chunk_size,
+                    chunk_overlap = chunk_overlap,
+                    separator = ' '
+                )
+                # text_splitter = SentenceTransformersTokenTextSplitter(
+                #     model_name = qa_model_name
+                # )
+        
+            if not text_splitter:
+                raise NameError("The text_splitter_name that you entered is not supported")
+            
+            texts = text_splitter.split_documents(self.documents)
+            self.texts.extend(texts)
     
     def get_embeddings_object(self):
         """
@@ -293,7 +300,7 @@ class DocumentationAgent:
         # define the db folder name based on chunking and embedding parameters
         dir_suffix = f"{self.embedding_model_name}_{similarity_metric_name}_{text_splitter_name}"
         if chunk_size:
-            dir_suffix += f'_{chunk_size}'
+            dir_suffix += f'_{"-".join([str(i) for i in chunk_size])}'
         persist_directory = os.path.join(self.db_dir, f'db_{os.path.basename(os.path.normpath(docs_dir))}_{dir_suffix}')
         
         # load chroma db, or create if it does not exist
@@ -323,7 +330,7 @@ class DocumentationAgent:
         result = None
         answer = 'not contain the answer'
         current_k = 0
-        while 'not contain the answer' in answer or current_k > 1:
+        while 'not contain the answer' in answer and current_k <= 1:
             current_k += 1
             qa = RetrievalQA.from_chain_type(llm = self.llm,
                                              chain_type = "stuff",
