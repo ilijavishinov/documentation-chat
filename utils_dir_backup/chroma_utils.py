@@ -1,6 +1,7 @@
 import torch
 import chromadb
 from transformers import AutoTokenizer, AutoModelForQuestionAnswering
+from utils_dir.ingest_data import sentence_to_vector
 
 def create_chromadb_collection(path,
                                name):
@@ -40,9 +41,11 @@ def remove_bert_tokens(text: str) -> str:
     
     return text
 
+
 def answer_q_from_docs(question,
-                       documents):
-    BERT_MODEL_NAME = "deepset/roberta-base-squad2"
+                       documents,
+                       model_name):
+    BERT_MODEL_NAME = model_name
     tokenizer = AutoTokenizer.from_pretrained(BERT_MODEL_NAME)
     model = AutoModelForQuestionAnswering.from_pretrained(BERT_MODEL_NAME)
     

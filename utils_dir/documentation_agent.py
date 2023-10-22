@@ -1,16 +1,9 @@
 from langchain.docstore.document import Document
-import chromadb
 import torch
 import tqdm
-
-from langchain.chat_models import ChatOpenAI
 from langchain.embeddings import OpenAIEmbeddings
 from langchain.embeddings import HuggingFaceEmbeddings
 from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, pipeline, AutoModel, RobertaForCausalLM, AutoModelForQuestionAnswering
-from langchain import HuggingFacePipeline
-from langchain.llms import HuggingFacePipeline
-from langchain.llms import LlamaCpp, GPT4All
-from langchain.chains import RetrievalQA
 from langchain.vectorstores import Chroma
 from langchain.embeddings import LlamaCppEmbeddings, GPT4AllEmbeddings
 from pathlib import Path
@@ -19,21 +12,15 @@ from langchain.document_loaders import (
 )
 import os
 import utils_dir.text_processing as text_processing
-from text_processing import console_print
 from langchain.text_splitter import RecursiveCharacterTextSplitter, MarkdownTextSplitter, MarkdownHeaderTextSplitter, CharacterTextSplitter, SentenceTransformersTokenTextSplitter
-from langchain.prompts import PromptTemplate
-from utils_dir.ingest_data import sentence_to_vector
+from utils_dir_backup.ingest_data import sentence_to_vector
+
+from utils_dir.documentation_handler import DocumentationHandler
+from utils_dir.llm_agent import LlmAgent
+from utils_dir.qa_agent import QaAgent
+from utils_dir.documentation_embedder import DocumentationEmbedder
 
 os.environ["OPENAI_API_KEY"] = "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"
-
-
-def console_print(arg, desc = None):
-    print()
-    print('_________________________ ********************** ______________________')
-    print(desc)
-    print(arg)
-    print('_________________________ ********************** ______________________')
-    print()
 
 
 class DocumentationAgent:
@@ -46,7 +33,8 @@ class DocumentationAgent:
     embedding_model = None
     qa_tokenizer = None
     qa_model = None
-    llm = None
+
+    llm_agent = None
     
     
     def __init__(self,
@@ -60,19 +48,9 @@ class DocumentationAgent:
         self.standalone_chroma_db = standalone_chroma_db
         
         self.embedding_model_name = embedding_model_name
-        self.llm_model_name = llm_model_name
         self.qa_model_name = qa_model_name
         
-        self.rag_prompt_template = """Use only the following pieces of context to answer the question at the end. \
-        If the context does not contain the answer, say that the documentation does not contain the answer.
-
-        {context}
-
-        Question: {question}
-        Answer:"""
-        self.llm_rag_prompt = PromptTemplate(
-            template = self.rag_prompt_template, input_variables = ["context", "question"]
-        )
+        self.llm_agent = LlmAgent(llm_model_name)
     
     def read_documents(self,
                        docs_dir):
@@ -240,62 +218,6 @@ class DocumentationAgent:
             raise NameError("The model_name for embeddings that you entered is not supported")
     
     
-    def get_llm_object(self):
-        """
-        """
-        
-        console_print(f'Getting {self.llm_model_name}')
-        if self.llm_model_name == 'openai':
-            self.llm = ChatOpenAI(model_name = "gpt-3.5-turbo")
-        elif self.llm_model_name == 'llamacpp':
-            self.llm = LlamaCpp(
-                model_path = r'C:\Users\ilija\llama.cpp\models\7B\ggml-model-q4_0.gguf',
-                verbose = True,
-                n_ctx = 1024,
-                n_threads = 8,
-                n_gpu_layers = 40,
-                n_batch = 512)
-        elif self.llm_model_name == 'gpt4all':
-            self.llm = GPT4All(
-                model = './models/ggml-gpt4all-j-v1.3-groovy.bin',
-            )
-            # verbose = True, n_ctx = 1024, n_gpu_layers = 1, n_batch = 4)
-        elif self.llm_model_name == 'ggml-falcon':
-            self.llm = GPT4All(model = r"D:\Downloads\ggml-model-gpt4all-falcon-q4_0.bin")
-            # verbose = True, n_ctx = 1024, n_gpu_layers = 1, n_batch = 4)
-        elif self.llm_model_name.startswith('flan'):
-            tokenizer = AutoTokenizer.from_pretrained(f"google/{self.llm_model_name}")
-            model = AutoModelForSeq2SeqLM.from_pretrained(f"google/{self.llm_model_name}")
-            pipe = pipeline("text2text-generation", model = model, tokenizer = tokenizer)
-            self.llm = HuggingFacePipeline(
-                pipeline = pipe,
-                model_kwargs = {"temperature": 0, "max_length": 512},
-            )
-        elif self.llm_model_name.startswith('distilbert'):
-            tokenizer = AutoTokenizer.from_pretrained("sentence-transformers/distilbert-base-nli-stsb-mean-tokens")
-            model = AutoModelForSeq2SeqLM.from_pretrained("sentence-transformers/distilbert-base-nli-stsb-mean-tokens")
-            pipe = pipeline("text2text-generation", model = model, tokenizer = tokenizer)
-            self.llm = HuggingFacePipeline(
-                pipeline = pipe,
-            )
-        elif self.llm_model_name.startswith('bert'):
-            tokenizer = AutoTokenizer.from_pretrained(f"sentence-transformers/bert-base-nli-stsb-mean-tokens")
-            model = AutoModelForSeq2SeqLM.from_pretrained("sentence-transformers/bert-base-nli-stsb-mean-tokens")
-            pipe = pipeline("text2text-generation", model = model, tokenizer = tokenizer)
-            self.llm = HuggingFacePipeline(
-                pipeline = pipe,
-            )
-        elif self.llm_model_name.startswith('roberta'):
-            tokenizer = AutoTokenizer.from_pretrained(f"deepset/roberta-base-squad2")
-            model = RobertaForCausalLM.from_pretrained("deepset/roberta-base-squad2")
-            pipe = pipeline("text2text-generation", model = model, tokenizer = tokenizer)
-            self.llm = HuggingFacePipeline(
-                pipeline = pipe,
-            )
-        
-        if not self.llm:
-            raise NameError("The model_name for llm that you entered is not supported")
-    
     def get_qa_object(self):
         """
         """
@@ -313,51 +235,6 @@ class DocumentationAgent:
         if not self.qa_model:
             raise NameError("The model_name for llm that you entered is not supported")
     
-    @staticmethod
-    def create_chromadb_collection(path):
-        if not path:
-            chroma_client = chromadb.Client()
-        else:
-            chroma_client = chromadb.PersistentClient(path = path)
-        
-        if os.path.exists(path):
-            collection = chroma_client.get_collection(
-                name = os.path.basename(os.path.normpath(path)),
-            )
-        else:
-            collection = chroma_client.create_collection(
-                name = os.path.basename(os.path.normpath(path)),
-                metadata={"hnsw:space": "cosine"}
-            )
-        return collection
-    
-    def add_df_rows_to_collection(self,
-                                  collection):
-        
-        idx = -1
-        for text in self.texts:
-            idx += 1
-            
-            embedding_to_be_uploaded = True
-            reduce_str_chars = 0
-            
-            while embedding_to_be_uploaded:
-                try:
-                    text_embedding = sentence_to_vector(raw_inputs = text.page_content[:-reduce_str_chars],
-                                                        tokenizer = self.embedding_tokenizer,
-                                                        model = self.embedding_model_standalone).tolist()[0]
-                    collection.add(
-                        embeddings = text_embedding,
-                        metadatas = {"source": text.metadata['source']},
-                        documents = text.page_content,
-                        ids = [str(idx)],
-                    )
-                    embedding_to_be_uploaded = False
-                except:
-                    reduce_str_chars += 50
-                    pass
-
-                
     def load_documentation_folder(self,
                                   docs_dir,
                                   text_splitter_name,
@@ -378,17 +255,7 @@ class DocumentationAgent:
         if chunk_size:
             dir_suffix += f'_{"-".join([str(i) for i in chunk_size])}'
         persist_directory = os.path.join(self.db_dir, f'db_{os.path.basename(os.path.normpath(docs_dir))}_{dir_suffix}')
-        persist_directory_standalone = os.path.join(self.db_dir, f'db_{os.path.basename(os.path.normpath(docs_dir))}_{dir_suffix}_standalone')
-        
-        if self.standalone_chroma_db:
-            if not os.path.exists(persist_directory_standalone):
-                self.read_documents(docs_dir)
-                self.split_documents(text_splitter_name = text_splitter_name, chunk_size = chunk_size)
-                chroma = self.create_chromadb_collection(path = persist_directory_standalone)
-                self.add_df_rows_to_collection(chroma)
-            else:
-                chroma = self.create_chromadb_collection(path = persist_directory_standalone)
-            self.standalone_chroma_db = chroma
+
         
         # load chroma db, or create if it does not exist
         if not os.path.exists(persist_directory):
@@ -410,28 +277,7 @@ class DocumentationAgent:
         """
 
         """
-        query = query.lower()
-
-        self.get_llm_object()
-        
-        result = None
-        answer = 'not contain the answer'
-        current_k = 0
-        while 'not contain the answer' in answer and current_k <= 1:
-            current_k += 1
-            qa = RetrievalQA.from_chain_type(llm = self.llm,
-                                             chain_type = "stuff",
-                                             retriever = self.db.as_retriever(search_kwargs = {'k': current_k}),
-                                             chain_type_kwargs = {"prompt": self.llm_rag_prompt},
-                                             return_source_documents = True
-                                             )
-            result = qa({"query": query})
-            answer = result['result']
-        
-        # console_print(result, 'result')
-        relevant_docs, similarity_scores = self.relevant_docs_ordered_by_similarity(query, current_k)
-        # console_print(relevant_docs, 'relevant_docs')
-        return result, relevant_docs
+        return self.llm_agent.llm_rag(query, self.db)
     
     @staticmethod
     def remove_bert_tokens(text: str) -> str:
