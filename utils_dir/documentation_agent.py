@@ -1,7 +1,9 @@
+from langchain.docstore.document import Document
+import chromadb
 import torch
 import tqdm
+
 from langchain.chat_models import ChatOpenAI
-from langchain.llms import OpenAI
 from langchain.embeddings import OpenAIEmbeddings
 from langchain.embeddings import HuggingFaceEmbeddings
 from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, pipeline, AutoModel, RobertaForCausalLM, AutoModelForQuestionAnswering
@@ -17,8 +19,10 @@ from langchain.document_loaders import (
 )
 import os
 import utils_dir.text_processing as text_processing
+from text_processing import console_print
 from langchain.text_splitter import RecursiveCharacterTextSplitter, MarkdownTextSplitter, MarkdownHeaderTextSplitter, CharacterTextSplitter, SentenceTransformersTokenTextSplitter
 from langchain.prompts import PromptTemplate
+from utils_dir.ingest_data import sentence_to_vector
 
 os.environ["OPENAI_API_KEY"] = "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"
 
@@ -44,13 +48,17 @@ class DocumentationAgent:
     qa_model = None
     llm = None
     
+    
     def __init__(self,
                  db_dir = None,
+                 standalone_chroma_db = False,
                  embedding_model_name = 'distilbert',
                  llm_model_name = None,
                  qa_model_name = 'roberta'):
         
         self.db_dir = db_dir
+        self.standalone_chroma_db = standalone_chroma_db
+        
         self.embedding_model_name = embedding_model_name
         self.llm_model_name = llm_model_name
         self.qa_model_name = qa_model_name
@@ -182,6 +190,14 @@ class DocumentationAgent:
                 model_kwargs = {'device': 'cuda:0'},
                 # encode_kwargs = {'normalize_embeddings': False}`
             )
+            if not self.standalone_chroma_db:
+                self.embedding_model_standalone = HuggingFaceEmbeddings(
+                    model_name = model_name,
+                    model_kwargs = {'device': 'cuda:0'},
+                    # encode_kwargs = {'normalize_embeddings': False}`
+                )
+            else:
+                self.embedding_model_standalone = AutoModel.from_pretrained(model_name)
             self.embedding_tokenizer = AutoTokenizer.from_pretrained(model_name)
             
         elif self.embedding_model_name.startswith('bert'):
@@ -191,8 +207,15 @@ class DocumentationAgent:
                 model_kwargs = {'device': 'cuda:0'},
                 # encode_kwargs = {'normalize_embeddings': False}`
             )
+            if not self.standalone_chroma_db:
+                self.embedding_model_standalone = HuggingFaceEmbeddings(
+                    model_name = model_name,
+                    model_kwargs = {'device': 'cuda:0'},
+                    # encode_kwargs = {'normalize_embeddings': False}`
+                )
+            else:
+                self.embedding_model_standalone = AutoModel.from_pretrained(model_name)
             self.embedding_tokenizer = AutoTokenizer.from_pretrained(model_name)
-
             
         elif self.embedding_model_name.startswith('roberta'):
             # model_name = "sentence-transformers/roberta-base-nli-stsb-mean-tokens",
@@ -202,9 +225,17 @@ class DocumentationAgent:
                 model_kwargs = {'device': 'cuda:0'},
                 # encode_kwargs = {'normalize_embeddings': False}`
             )
+            if not self.standalone_chroma_db:
+                self.embedding_model_standalone = HuggingFaceEmbeddings(
+                    model_name = model_name,
+                    model_kwargs = {'device': 'cuda:0'},
+                    # encode_kwargs = {'normalize_embeddings': False}`
+                )
+            else:
+                self.embedding_model_standalone = AutoModel.from_pretrained(model_name)
             self.embedding_tokenizer = AutoTokenizer.from_pretrained(model_name)
 
-        
+
         if not self.embedding_model:
             raise NameError("The model_name for embeddings that you entered is not supported")
     
@@ -282,6 +313,51 @@ class DocumentationAgent:
         if not self.qa_model:
             raise NameError("The model_name for llm that you entered is not supported")
     
+    @staticmethod
+    def create_chromadb_collection(path):
+        if not path:
+            chroma_client = chromadb.Client()
+        else:
+            chroma_client = chromadb.PersistentClient(path = path)
+        
+        if os.path.exists(path):
+            collection = chroma_client.get_collection(
+                name = os.path.basename(os.path.normpath(path)),
+            )
+        else:
+            collection = chroma_client.create_collection(
+                name = os.path.basename(os.path.normpath(path)),
+                metadata={"hnsw:space": "cosine"}
+            )
+        return collection
+    
+    def add_df_rows_to_collection(self,
+                                  collection):
+        
+        idx = -1
+        for text in self.texts:
+            idx += 1
+            
+            embedding_to_be_uploaded = True
+            reduce_str_chars = 0
+            
+            while embedding_to_be_uploaded:
+                try:
+                    text_embedding = sentence_to_vector(raw_inputs = text.page_content[:-reduce_str_chars],
+                                                        tokenizer = self.embedding_tokenizer,
+                                                        model = self.embedding_model_standalone).tolist()[0]
+                    collection.add(
+                        embeddings = text_embedding,
+                        metadatas = {"source": text.metadata['source']},
+                        documents = text.page_content,
+                        ids = [str(idx)],
+                    )
+                    embedding_to_be_uploaded = False
+                except:
+                    reduce_str_chars += 50
+                    pass
+
+                
     def load_documentation_folder(self,
                                   docs_dir,
                                   text_splitter_name,
@@ -302,6 +378,17 @@ class DocumentationAgent:
         if chunk_size:
             dir_suffix += f'_{"-".join([str(i) for i in chunk_size])}'
         persist_directory = os.path.join(self.db_dir, f'db_{os.path.basename(os.path.normpath(docs_dir))}_{dir_suffix}')
+        persist_directory_standalone = os.path.join(self.db_dir, f'db_{os.path.basename(os.path.normpath(docs_dir))}_{dir_suffix}_standalone')
+        
+        if self.standalone_chroma_db:
+            if not os.path.exists(persist_directory_standalone):
+                self.read_documents(docs_dir)
+                self.split_documents(text_splitter_name = text_splitter_name, chunk_size = chunk_size)
+                chroma = self.create_chromadb_collection(path = persist_directory_standalone)
+                self.add_df_rows_to_collection(chroma)
+            else:
+                chroma = self.create_chromadb_collection(path = persist_directory_standalone)
+            self.standalone_chroma_db = chroma
         
         # load chroma db, or create if it does not exist
         if not os.path.exists(persist_directory):
@@ -315,7 +402,7 @@ class DocumentationAgent:
             chroma = Chroma(persist_directory = persist_directory,
                             embedding_function = self.embedding_model,
                             collection_metadata={"hnsw:space": similarity_metric_name})
-        
+            
         self.db = chroma
     
     def llm_rag(self,
@@ -351,6 +438,36 @@ class DocumentationAgent:
         for separator_token in ["[CLS]", "[SEP]", "[UNK]", "<s>", "</s>", "[]"]:
             text = text.replace(separator_token, "")
         return text
+    
+    def relevant_docs_ordered_by_similarity_standalone(self,
+                                                       question,
+                                                       k,
+                                                       threshold = 0.5):
+        """
+
+        """
+        question_emb = sentence_to_vector(question, self.embedding_tokenizer, self.embedding_model_standalone).tolist()[0]
+        results = self.standalone_chroma_db.query(
+            query_embeddings = question_emb,
+            n_results = k,
+        )
+
+        relevant_docs_tuples = list()
+        for i in range(len(results)):
+            relevant_docs_tuples.append((
+                Document(page_content = str(results['documents'][0][i]),
+                         metadata = {"source": results['metadatas'][0][i]['source']}),
+                results['distances'][0][i]
+            ))
+        
+        # sort by relevance score
+        relevant_docs_tuples.sort(key = lambda a: a[1], reverse = True)
+
+        # take only relevant docs with cosine similarity > 0.5
+        relevant_docs = [pair[0] for pair in relevant_docs_tuples if pair[1] >= threshold]
+        similarity_scores = [pair[1] for pair in relevant_docs_tuples if pair[1] >= threshold]
+        
+        return relevant_docs, similarity_scores
     
     def qa_model_answer(self,
                         query,
@@ -407,38 +524,74 @@ class DocumentationAgent:
         current_k = 5
         k_increase = 30
         
-        while not result:
+        if self.standalone_chroma_db:
             
-            # if result not found in 50 retrieved docs, do not provide one
-            if current_k > 65:
-                result = dict(query = query,
-                              result = 'Could not answer question',
-                              source_documents = [])
-                break
-            
-            relevant_docs, similarity_scores = self.relevant_docs_ordered_by_similarity(query, current_k)
-            
-            # take last retrieved documents
-            for doc in relevant_docs[current_k - k_increase:]:
-                context = doc.page_content
-                
-                try:
-                    answer = self.qa_model_answer(query = query,
-                                                  context = context)
-                except Exception as e:
-                    print(e)
-                    continue
-                
-                # iterate retrieved docs while sufficient answer
-                if not result and len(answer) > 5:
+            while not result:
+                # if result not found in 50 retrieved docs, do not provide one
+                if current_k > 65:
                     result = dict(query = query,
-                                  result = text_processing.format_answer(answer),
-                                  source_documents = [doc])
+                                  result = 'Could not answer question',
+                                  source_documents = [])
                     break
                 
-            current_k += k_increase
+                relevant_docs, similarity_scores = self.relevant_docs_ordered_by_similarity_standalone(query, current_k)
+                
+                # take last retrieved documents
+                for doc in relevant_docs[current_k - k_increase:]:
+                    context = doc.page_content
+                    
+                    try:
+                        answer = self.qa_model_answer(query = query,
+                                                      context = context)
+                    except Exception as e:
+                        print(e)
+                        continue
+                    
+                    # iterate retrieved docs while sufficient answer
+                    if not result and len(answer) > 5:
+                        result = dict(query = query,
+                                      result = text_processing.format_answer(answer),
+                                      source_documents = [doc])
+                        break
+                
+                current_k += k_increase
+                
+                print('while', not result)
             
-            print('while', not result)
+        else:
+        
+            while not result:
+                
+                # if result not found in 50 retrieved docs, do not provide one
+                if current_k > 65:
+                    result = dict(query = query,
+                                  result = 'Could not answer question',
+                                  source_documents = [])
+                    break
+                
+                relevant_docs, similarity_scores = self.relevant_docs_ordered_by_similarity(query, current_k)
+                
+                # take last retrieved documents
+                for doc in relevant_docs[current_k - k_increase:]:
+                    context = doc.page_content
+                    
+                    try:
+                        answer = self.qa_model_answer(query = query,
+                                                      context = context)
+                    except Exception as e:
+                        print(e)
+                        continue
+                    
+                    # iterate retrieved docs while sufficient answer
+                    if not result and len(answer) > 5:
+                        result = dict(query = query,
+                                      result = text_processing.format_answer(answer),
+                                      source_documents = [doc])
+                        break
+                    
+                current_k += k_increase
+                
+                print('while', not result)
             
         return result, relevant_docs
     
