@@ -2,7 +2,7 @@ FROM python:3.11
 
 WORKDIR /app
 
-ADD streamlit_doc_chat_docker.py .
+ADD app/streamlit_doc_chat_docker.py .
 ADD docs_loka ./docs_loka
 ADD utils_dir ./utils_dir
 ADD requirements.txt .

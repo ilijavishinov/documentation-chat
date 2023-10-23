@@ -11,6 +11,7 @@ DEVICE = 'cpu'
 DOCS_DIR = './docs_loka'
 DB_DIR = f'./dbs'
 
+
 def initialize_streamlit(page_title: str):
     """
     Initialize streamlit state and page config
