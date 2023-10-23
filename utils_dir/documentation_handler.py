@@ -1,38 +1,28 @@
-import torch
+from typing import List
+from utils_dir.documentation_embedder import DocumentationEmbedder
 import tqdm
-from langchain.chat_models import ChatOpenAI
-from langchain.llms import OpenAI
-from langchain.embeddings import OpenAIEmbeddings
-from langchain.embeddings import HuggingFaceEmbeddings
-from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, pipeline, AutoModel, RobertaForCausalLM, AutoModelForQuestionAnswering
-from langchain import HuggingFacePipeline
-from langchain.llms import HuggingFacePipeline
-from langchain.llms import LlamaCpp, GPT4All
-from langchain.chains import RetrievalQA
 from langchain.vectorstores import Chroma
-from langchain.embeddings import LlamaCppEmbeddings, GPT4AllEmbeddings
 from pathlib import Path
 from langchain.document_loaders import (
-    TextLoader, UnstructuredMarkdownLoader
+    UnstructuredMarkdownLoader
 )
 import os
 import utils_dir.text_processing as text_processing
-from langchain.text_splitter import RecursiveCharacterTextSplitter, MarkdownTextSplitter, MarkdownHeaderTextSplitter, CharacterTextSplitter, SentenceTransformersTokenTextSplitter
-from langchain.prompts import PromptTemplate
+from langchain.text_splitter import RecursiveCharacterTextSplitter, MarkdownTextSplitter, CharacterTextSplitter
 
 
 class DocumentationHandler:
-    documents = []
-    texts = []
-    docs_dir = None
+    documents: List = []
+    texts: List = []
+    docs_dir: str = None
     db = None
     
     def __init__(self,
-                 db_dir = None):
+                 db_dir: str = None):
         self.db_dir = db_dir
     
     def read_documents(self,
-                       docs_dir):
+                       docs_dir: str):
         """
         Reads all markdown files from a folder structure as langchain documents
         """
@@ -40,19 +30,22 @@ class DocumentationHandler:
         glob = Path(f"{docs_dir}").glob
         ps = list(glob("**/*.md"))
         documents = list()
+        
         for p in tqdm.tqdm(ps, "Loading documents"):
             file_extension = os.path.splitext(p)[1]
             if file_extension != '.md': continue
+            
             document = UnstructuredMarkdownLoader(p, encoding = "utf-8").load()[0]
             document.page_content = text_processing.markdown_to_lower_text(document.page_content)
             document.metadata["source"] = document.metadata['source'].__str__()
             documents.append(document)
+        
         self.documents = documents
-    
+
     def split_documents(self,
-                        embedding_agent,
-                        chunk_size,
-                        text_splitter_name = 'recursive'):
+                        embedding_agent: DocumentationEmbedder,
+                        chunk_size: List[int],
+                        text_splitter_name: str = 'recursive'):
         """
         Splits the document based on a chunking strategy
         """
@@ -96,11 +89,11 @@ class DocumentationHandler:
             self.texts.extend(texts)
     
     def load_documentation_folder(self,
-                                  embedding_agent,
-                                  docs_dir,
-                                  text_splitter_name,
-                                  chunk_size = None,
-                                  similarity_metric_name = 'cosine'):
+                                  embedding_agent: DocumentationEmbedder,
+                                  docs_dir: str,
+                                  text_splitter_name: str,
+                                  chunk_size: List[int] = None,
+                                  similarity_metric_name: str = 'cosine'):
         """
         Creates or load a chroma vector database depnding on if it exists for the passed documentation
         """
@@ -121,6 +114,8 @@ class DocumentationHandler:
             self.split_documents(embedding_agent = embedding_agent,
                                  text_splitter_name = text_splitter_name,
                                  chunk_size = chunk_size)
+            print(len(self.texts))
+            
             chroma = Chroma.from_documents(self.texts,
                                            embedding_agent.embedding_model,
                                            persist_directory = persist_directory,

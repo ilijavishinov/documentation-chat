@@ -6,15 +6,17 @@ import os
 
 
 class DocumentationEmbedder:
-    docs_dir = None
+    docs_dir: str = None
     db = None
     embedding_tokenizer = None
     embedding_model = None
     
     def __init__(self,
-                 embedding_model_name = 'distilbert'):
+                 embedding_model_name: str = 'distilbert',
+                 device: str = 'cpu'):
         
         self.embedding_model_name = embedding_model_name
+        self.device = device
         self.get_embeddings_object()
     
     def get_embeddings_object(self):
@@ -65,7 +67,7 @@ class DocumentationEmbedder:
             model_name = "sentence-transformers/distilbert-base-nli-stsb-mean-tokens"
             self.embedding_model = HuggingFaceEmbeddings(
                 model_name = model_name,
-                model_kwargs = {'device': 'cuda:0'},
+                model_kwargs = {'device': 'cuda:0'} if self.device.startswith('cuda') else {},
                 # encode_kwargs = {'normalize_embeddings': False}`
             )
             self.embedding_tokenizer = AutoTokenizer.from_pretrained(model_name)
@@ -74,7 +76,7 @@ class DocumentationEmbedder:
             model_name = "sentence-transformers/bert-base-nli-stsb-mean-tokens",
             self.embedding_model = HuggingFaceEmbeddings(
                 model_name = model_name,
-                model_kwargs = {'device': 'cuda:0'},
+                model_kwargs = {'device': 'cuda:0'} if self.device.startswith('cuda') else {},
                 # encode_kwargs = {'normalize_embeddings': False}`
             )
             self.embedding_tokenizer = AutoTokenizer.from_pretrained(model_name)
@@ -84,7 +86,7 @@ class DocumentationEmbedder:
             model_name = "symanto/sn-xlm-roberta-base-snli-mnli-anli-xnli"
             self.embedding_model = HuggingFaceEmbeddings(
                 model_name = model_name,
-                model_kwargs = {'device': 'cuda:0'},
+                model_kwargs = {'device': 'cuda:0'} if self.device.startswith('cuda') else {},
                 # encode_kwargs = {'normalize_embeddings': False}`
             )
             self.embedding_tokenizer = AutoTokenizer.from_pretrained(model_name)

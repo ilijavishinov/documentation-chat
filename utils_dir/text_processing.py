@@ -3,7 +3,7 @@ from markdown import markdown
 import re
 
 
-def markdown_to_lower_text(markdown_string):
+def markdown_to_lower_text(markdown_string: str):
     """
     Converts a markdown string to lower text
     """
@@ -24,7 +24,7 @@ def markdown_to_lower_text(markdown_string):
     return text.lower()
 
 
-def format_answer(answer):
+def format_answer(answer: str):
     """
     Format answer for frontend display
     """

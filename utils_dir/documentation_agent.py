@@ -1,4 +1,6 @@
 import os
+from typing import List
+
 from utils_dir.documentation_handler import DocumentationHandler
 from utils_dir.llm_agent import LlmAgent
 from utils_dir.qa_agent import QaAgent
@@ -13,28 +15,34 @@ class DocumentationAgent:
     the documentation chat experience, and it calls them when needed.
     """
     
-    documentation_handler = None
-    embedding_agent = None
-    qa_agent = None
-    llm_agent = None
+    documentation_handler: DocumentationHandler = None
+    embedding_agent: DocumentationEmbedder = None
+    qa_agent: QaAgent = None
+    llm_agent: LlmAgent = None
     
     def __init__(self,
-                 db_dir = None,
-                 embedding_model_name = None,
-                 answering_model_name = None):
+                 db_dir: str = None,
+                 embedding_model_name: str = None,
+                 answering_model_name: str = None,
+                 device: str = 'cpu'):
+        
         self.documentation_handler = DocumentationHandler(db_dir = db_dir)
-        self.embedding_agent = DocumentationEmbedder(embedding_model_name = embedding_model_name)
+        
+        self.embedding_agent = DocumentationEmbedder(embedding_model_name = embedding_model_name,
+                                                     device = device)
         
         if answering_model_name.startswith("qa_"):
             self.qa_agent = QaAgent(qa_model_name = answering_model_name)
         else:
             self.llm_agent = LlmAgent(llm_model_name = answering_model_name)
+            
+        self.device = device
     
     def load_documentation_folder(self,
-                                  docs_dir,
-                                  text_splitter_name,
-                                  chunk_size,
-                                  similarity_metric_name = 'cosine'):
+                                  docs_dir: str,
+                                  text_splitter_name: str,
+                                  chunk_size: List[int],
+                                  similarity_metric_name: str = 'cosine'):
         """
         Loads all files from a given folder into a given database
         If the database for the current folder exists, it just loads it
@@ -45,11 +53,11 @@ class DocumentationAgent:
             docs_dir = docs_dir,
             text_splitter_name = text_splitter_name,
             chunk_size = chunk_size,
-            similarity_metric_name = similarity_metric_name
+            similarity_metric_name = similarity_metric_name,
         )
     
     def get_response(self,
-                     query):
+                     query: str):
         """
         Returns the answer, source and relevant documents for the query
         depending on the model configuration

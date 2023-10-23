@@ -13,7 +13,7 @@ class LlmAgent:
     llm = None
     
     def __init__(self,
-                 llm_model_name = None):
+                 llm_model_name: str = None):
         self.llm_model_name = llm_model_name
         self.rag_prompt_template = """Use only the following pieces of context to answer the question at the end. \
         If the context does not contain the answer, say that the documentation does not contain the answer.
@@ -34,6 +34,7 @@ class LlmAgent:
         
         if self.llm_model_name.startswith('openai'):
             self.llm = ChatOpenAI(model_name = "gpt-3.5-turbo")
+            
         elif self.llm_model_name == 'llamacpp':
             self.llm = LlamaCpp(
                 model_path = r'C:\Users\ilija\llama.cpp\models\7B\ggml-model-q4_0.gguf',
@@ -42,14 +43,17 @@ class LlmAgent:
                 n_threads = 8,
                 n_gpu_layers = 40,
                 n_batch = 512)
+            
         elif self.llm_model_name == 'gpt4all':
             self.llm = GPT4All(
                 model = './models/ggml-gpt4all-j-v1.3-groovy.bin',
             )
             # verbose = True, n_ctx = 1024, n_gpu_layers = 1, n_batch = 4)
+            
         elif self.llm_model_name == 'ggml-falcon':
             self.llm = GPT4All(model = r"D:\Downloads\ggml-model-gpt4all-falcon-q4_0.bin")
             # verbose = True, n_ctx = 1024, n_gpu_layers = 1, n_batch = 4)
+            
         elif self.llm_model_name.startswith('flan'):
             tokenizer = AutoTokenizer.from_pretrained(f"google/{self.llm_model_name}")
             model = AutoModelForSeq2SeqLM.from_pretrained(f"google/{self.llm_model_name}")
@@ -58,6 +62,7 @@ class LlmAgent:
                 pipeline = pipe,
                 model_kwargs = {"temperature": 0, "max_length": 512},
             )
+            
         elif self.llm_model_name.startswith('distilbert'):
             tokenizer = AutoTokenizer.from_pretrained("sentence-transformers/distilbert-base-nli-stsb-mean-tokens")
             model = AutoModelForSeq2SeqLM.from_pretrained("sentence-transformers/distilbert-base-nli-stsb-mean-tokens")
@@ -65,6 +70,7 @@ class LlmAgent:
             self.llm = HuggingFacePipeline(
                 pipeline = pipe,
             )
+            
         elif self.llm_model_name.startswith('bert'):
             tokenizer = AutoTokenizer.from_pretrained(f"sentence-transformers/bert-base-nli-stsb-mean-tokens")
             model = AutoModelForSeq2SeqLM.from_pretrained("sentence-transformers/bert-base-nli-stsb-mean-tokens")
@@ -72,6 +78,7 @@ class LlmAgent:
             self.llm = HuggingFacePipeline(
                 pipeline = pipe,
             )
+            
         elif self.llm_model_name.startswith('roberta'):
             tokenizer = AutoTokenizer.from_pretrained(f"deepset/roberta-base-squad2")
             model = RobertaForCausalLM.from_pretrained("deepset/roberta-base-squad2")
@@ -84,7 +91,7 @@ class LlmAgent:
             raise NameError("The model_name for llm that you entered is not supported")
     
     def llm_rag(self,
-                query,
+                query: str,
                 db):
         """
         Performs Retrieval Augmented Generation with the most similar document from the vector db
@@ -112,10 +119,10 @@ class LlmAgent:
         return result, relevant_docs
     
     @staticmethod
-    def relevant_docs_ordered_by_similarity(query,
+    def relevant_docs_ordered_by_similarity(query: str,
                                             db,
-                                            k,
-                                            threshold = 0.5):
+                                            k: int,
+                                            threshold: float = 0.5):
         """
         Returns the most similar documents to the query depending on a similarity threshold
         """

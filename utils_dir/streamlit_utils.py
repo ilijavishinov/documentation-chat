@@ -31,7 +31,8 @@ padding-right: 0.5rem;
 """
 
 
-def answer_html_func(result, relevant_documents):
+def answer_html_func(result,
+                     relevant_documents):
     answer = text_processing.format_answer(result['result'])
     
     # take last document

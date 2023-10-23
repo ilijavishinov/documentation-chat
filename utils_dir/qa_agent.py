@@ -1,16 +1,14 @@
-from langchain.docstore.document import Document
 import torch
-import os
 import utils_dir.text_processing as text_processing
-from utils_dir_backup.ingest_data import sentence_to_vector
 from transformers import AutoTokenizer, AutoModelForQuestionAnswering
+
 
 class QaAgent:
     qa_tokenizer = None
     qa_model = None
     
     def __init__(self,
-                 qa_model_name = 'roberta'):
+                 qa_model_name: str = 'roberta'):
         
         self.qa_model_name = qa_model_name
         self.get_qa_object()
@@ -40,8 +38,8 @@ class QaAgent:
         return text
     
     def qa_model_answer(self,
-                        query,
-                        context):
+                        query: str,
+                        context: str):
         """
         Perform the question-answering logic in pytorch
         """
@@ -63,10 +61,10 @@ class QaAgent:
         return answer
     
     @staticmethod
-    def relevant_docs_ordered_by_similarity(query,
+    def relevant_docs_ordered_by_similarity(query: str,
                                             db,
-                                            k,
-                                            threshold = 0.5):
+                                            k: int,
+                                            threshold: float = 0.5):
         """
         Returns the most similar documents to the query depending on a similarity threshold
         """
@@ -83,7 +81,7 @@ class QaAgent:
         return relevant_docs, similarity_scores
     
     def qa_response(self,
-                    query,
+                    query: str,
                     db):
         """
         Performs Question-Answering while it finds a suitable answer from the vector database.
