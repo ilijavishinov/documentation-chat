@@ -7,11 +7,13 @@ import importlib
 importlib.reload(streamlit_utils)
 from utils_dir.text_processing import console_print
 
+
 DEVICE = 'cuda'
 DOCS_DIR = './docs_loka'
 DB_DIR = f'./dbs'
 
-def initialize_streamlit(page_title):
+
+def initialize_streamlit(page_title: str):
     """
     Initialize streamlit state and page config
     """
@@ -25,6 +27,7 @@ def initialize_streamlit(page_title):
     if 'answers' not in st.session_state: st.session_state['answers'] = []
     if 'last_source' not in st.session_state: st.session_state['last_source'] = ''
     if 'chat_loaded' not in st.session_state: st.session_state['chat_loaded'] = False
+
 
 def show_streamlit_elements():
     """
@@ -45,11 +48,12 @@ def show_streamlit_elements():
             message(st.session_state["answers"][i],
                     key = str(i), logo = streamlit_utils.AWS_ICON, allow_html = True)
 
+
 @st.cache_resource
-def initialize_documentation_agent(embeddings_model_name,
-                                   answering_model_name,
-                                   chunking_type,
-                                   chunk_size):
+def initialize_documentation_agent(embeddings_model_name: str,
+                                   answering_model_name: str,
+                                   chunking_type: str,
+                                   chunk_size: int):
     """
     Load the DocumentationAgent and keep it in cache until new configuration is chosen
     """
@@ -63,8 +67,9 @@ def initialize_documentation_agent(embeddings_model_name,
                                          chunk_size = [chunk_size])
     return doc_agent_
 
-def query(query_,
-          doc_agent_):
+
+def query(query_: str,
+          doc_agent_: DocumentationAgent):
     """
     Generate answer for query and return html formatted answer
     """
@@ -88,8 +93,9 @@ def query(query_,
     st.session_state.answers.append(answer_html)
     return answer_html
 
-def pass_assertions(embeddings_model_name,
-                    chunking_type):
+
+def pass_assertions(embeddings_model_name: str,
+                    chunking_type: str):
     """
     Make assertions for unsupported combinations from the frontend choices
     """
@@ -99,6 +105,7 @@ def pass_assertions(embeddings_model_name,
         return False
     
     return True
+
 
 if __name__ == '__main__':
     initialize_streamlit(page_title = 'AWS Documentation Chat')
