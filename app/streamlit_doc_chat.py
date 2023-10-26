@@ -107,6 +107,8 @@ if __name__ == '__main__':
     with st.sidebar:
         embeddings_model_name = st.selectbox(
             'Choose the embedding model', (
+                'BGE-LLM-embedder',
+                'BGE-Large',
                 'RoBERTa',
                 'DistilBERT ',
                 'OpenAI ADAv2',
@@ -136,12 +138,12 @@ if __name__ == '__main__':
     
     if pass_assertions(embeddings_model_name,
                        chunking_type):
-        console_print(f"""\n
-            Loading chat with\n
-            embeddings_model_name = {embeddings_model_name},\n
-            answering_model_name = {answering_model_name},\n
-            chunking_type = {chunking_type},\n
-            chunk_size = {chunk_size}\n
+        console_print(f"""
+            Loading chat with
+            embeddings_model_name = {embeddings_model_name},
+            answering_model_name = {answering_model_name},
+            chunking_type = {chunking_type},
+            chunk_size = {chunk_size}
         """)
         
         doc_agent = initialize_documentation_agent(

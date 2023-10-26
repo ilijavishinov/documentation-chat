@@ -5,7 +5,7 @@ from langchain.embeddings import LlamaCppEmbeddings, GPT4AllEmbeddings
 import os
 
 
-class DocumentationEmbedder:
+class DocumentationEmbedder(object):
     docs_dir: str = None
     db = None
     embedding_tokenizer = None
@@ -62,28 +62,20 @@ class DocumentationEmbedder:
             self.embedding_model = GPT4AllEmbeddings(
                 model_path = r"ggml-all-MiniLM-L6-v2-f16.bin"
             )
-        
-        elif self.embedding_model_name.startswith('distilbert'):
-            model_name = "sentence-transformers/distilbert-base-nli-stsb-mean-tokens"
-            self.embedding_model = HuggingFaceEmbeddings(
-                model_name = model_name,
-                model_kwargs = {'device': 'cuda:0'} if self.device.startswith('cuda') else {},
-                # encode_kwargs = {'normalize_embeddings': False}`
-            )
-            self.embedding_tokenizer = AutoTokenizer.from_pretrained(model_name)
-        
-        elif self.embedding_model_name.startswith('bert'):
-            model_name = "sentence-transformers/bert-base-nli-stsb-mean-tokens",
-            self.embedding_model = HuggingFaceEmbeddings(
-                model_name = model_name,
-                model_kwargs = {'device': 'cuda:0'} if self.device.startswith('cuda') else {},
-                # encode_kwargs = {'normalize_embeddings': False}`
-            )
-            self.embedding_tokenizer = AutoTokenizer.from_pretrained(model_name)
-        
-        elif self.embedding_model_name.startswith('roberta'):
-            # model_name = "sentence-transformers/roberta-base-nli-stsb-mean-tokens",
-            model_name = "symanto/sn-xlm-roberta-base-snli-mnli-anli-xnli"
+            
+        else:
+            model_name = None
+            if self.embedding_model_name.startswith('distilbert'):
+                model_name = "sentence-transformers/distilbert-base-nli-stsb-mean-tokens"
+            elif self.embedding_model_name.startswith('bert'):
+                model_name = "sentence-transformers/bert-base-nli-stsb-mean-tokens",
+            elif self.embedding_model_name.startswith('roberta'):
+                model_name = "symanto/sn-xlm-roberta-base-snli-mnli-anli-xnli"
+            elif self.embedding_model_name.startswith('bge-large'):
+                model_name = "BAAI/bge-large-en-v1.5"
+            elif self.embedding_model_name.startswith('bge-llm'):
+                model_name = "BAAI/bge-large-en-v1.5"
+
             self.embedding_model = HuggingFaceEmbeddings(
                 model_name = model_name,
                 model_kwargs = {'device': 'cuda:0'} if self.device.startswith('cuda') else {},
@@ -93,4 +85,6 @@ class DocumentationEmbedder:
         
         if not self.embedding_model:
             raise NameError("The model_name for embeddings that you entered is not supported")
+        
+        
 
