@@ -111,7 +111,7 @@ if __name__ == '__main__':
                 'BGE-Large',
                 'RoBERTa',
                 'DistilBERT ',
-                'OpenAI ADAv2',
+                # 'OpenAI ADAv2',
             )
         ).lower()
         
