@@ -1,9 +1,11 @@
+import logging
+
 import torch
 import utils_dir.text_processing as text_processing
 from transformers import AutoTokenizer, AutoModelForQuestionAnswering
 
 
-class QaAgent:
+class QaAgent(object):
     qa_tokenizer = None
     qa_model = None
     
@@ -77,6 +79,10 @@ class QaAgent:
         # take only relevant docs with cosine similarity > 0.5
         relevant_docs = [pair[0] for pair in relevant_docs_tuples if pair[1] >= threshold]
         similarity_scores = [pair[1] for pair in relevant_docs_tuples if pair[1] >= threshold]
+        
+        text_processing.console_print('Most similar documents')
+        for i in range(len(relevant_docs)):
+            text_processing.console_print(f'{similarity_scores[i]} {relevant_docs[i]}')
         
         return relevant_docs, similarity_scores
     

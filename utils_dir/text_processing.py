@@ -47,4 +47,4 @@ def console_print_debug(arg, desc = None):
 
 
 def console_print(str_):
-    print('\n***** LOKA DOCS LOG *****\t\t', str_, '\n')
+    print(f'\n***** LOKA DOCS LOG *****\n\t{str_} \n', flush = True)

@@ -1,3 +1,4 @@
+import logging
 import os
 from typing import List
 
@@ -5,11 +6,12 @@ from utils_dir.documentation_handler import DocumentationHandler
 from utils_dir.llm_agent import LlmAgent
 from utils_dir.qa_agent import QaAgent
 from utils_dir.documentation_embedder import DocumentationEmbedder
+from utils_dir.text_processing import console_print
 
 os.environ["OPENAI_API_KEY"] = "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"
 
 
-class DocumentationAgent:
+class DocumentationAgent(object):
     """
     Contains in it the necessary agents and hanlders to provide
     the documentation chat experience, and it calls them when needed.
@@ -62,6 +64,8 @@ class DocumentationAgent:
         Returns the answer, source and relevant documents for the query
         depending on the model configuration
         """
+        
+        console_print(f'Quesion: {query}')
         
         if self.llm_agent:
             result, relevant_docs = self.llm_agent.llm_rag(

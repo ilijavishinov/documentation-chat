@@ -11,7 +11,7 @@ import utils_dir.text_processing as text_processing
 from langchain.text_splitter import RecursiveCharacterTextSplitter, MarkdownTextSplitter, CharacterTextSplitter
 
 
-class DocumentationHandler:
+class DocumentationHandler(object):
     documents: List = []
     texts: List = []
     docs_dir: str = None
@@ -34,7 +34,6 @@ class DocumentationHandler:
         for p in tqdm.tqdm(ps, "Loading documents"):
             file_extension = os.path.splitext(p)[1]
             if file_extension != '.md': continue
-            
             document = UnstructuredMarkdownLoader(p, encoding = "utf-8").load()[0]
             document.page_content = text_processing.markdown_to_lower_text(document.page_content)
             document.metadata["source"] = document.metadata['source'].__str__()
@@ -99,8 +98,8 @@ class DocumentationHandler:
         """
         
         # assertions
-        if text_splitter_name == 'tokens' and embedding_agent.embedding_model_name not in ['distilbert', 'roberta', 'bert']:
-            raise NameError(f"tokens chunking implementation for {embedding_agent.embedding_model_name} is not supported")
+        # if text_splitter_name == 'tokens' and embedding_agent.embedding_model_name not in ['distilbert', 'roberta', 'bert']:
+        #     raise NameError(f"tokens chunking implementation for {embedding_agent.embedding_model_name} is not supported")
         
         # define the db folder name based on chunking and embedding parameters
         dir_suffix = f"{embedding_agent.embedding_model_name}_{similarity_metric_name}_{text_splitter_name}"

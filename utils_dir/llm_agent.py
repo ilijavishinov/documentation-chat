@@ -1,3 +1,5 @@
+import logging
+
 from langchain.chat_models import ChatOpenAI
 from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, pipeline, AutoModel, RobertaForCausalLM, AutoModelForQuestionAnswering
 from langchain import HuggingFacePipeline
@@ -9,7 +11,7 @@ from utils_dir.text_processing import console_print
 from langchain.prompts import PromptTemplate
 
 
-class LlmAgent:
+class LlmAgent(object):
     llm = None
     
     def __init__(self,
@@ -135,6 +137,10 @@ class LlmAgent:
         # take only relevant docs with cosine similarity > 0.5
         relevant_docs = [pair[0] for pair in relevant_docs_tuples if pair[1] >= threshold]
         similarity_scores = [pair[1] for pair in relevant_docs_tuples if pair[1] >= threshold]
+        
+        console_print('Most similar documents')
+        for i in range(len(relevant_docs)):
+            console_print(f'{similarity_scores[i]} {relevant_docs[i]}')
         
         return relevant_docs, similarity_scores
 
