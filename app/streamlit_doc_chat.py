@@ -8,7 +8,7 @@ importlib.reload(streamlit_utils)
 from utils_dir.text_processing import console_print
 
 DEVICE = 'cpu'
-DOCS_DIR = './docs_loka'
+DOCS_DIR = './docs'
 DB_DIR = f'./dbs'
 
 

@@ -3,7 +3,7 @@ FROM python:3.11
 WORKDIR /app
 
 ADD app/streamlit_doc_chat.py .
-ADD docs_loka ./docs_loka
+ADD docs ./docs
 ADD utils_dir ./utils_dir
 ADD requirements.txt .
 
