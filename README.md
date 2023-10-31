@@ -1,6 +1,5 @@
 # AWS Documentation Chat
 
-This is the demo solution for the ML Engineer interview task. 
 
 An easier way to navigate the company documentation is implemented through a QA chat bot.
 The bot answers questions and provides the source for the answer, as well as other relevant documentation files that may be of use.
